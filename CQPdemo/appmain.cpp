@@ -9,11 +9,15 @@
 #include "cqp.h"
 #include "appmain.h" //应用AppID等信息，请正确填写，否则酷Q可能无法加载
 
+#include "QTool.h"
+#include "base64.h"
+#include <time.h>
+#include "ProcessMsg.h"
+
 using namespace std;
 
 int ac = -1; //AuthCode 调用酷Q的方法时需要用到
 bool enabled = false;
-
 
 /* 
 * 返回应用的ApiVer、Appid，打包后将不会调用
@@ -86,7 +90,11 @@ CQEVENT(int32_t, __eventPrivateMsg, 24)(int32_t subType, int32_t sendTime, int64
 
 	//如果要回复消息，请调用酷Q方法发送，并且这里 return EVENT_BLOCK - 截断本条消息，不再继续处理  注意：应用优先级设置为"最高"(10000)时，不得使用本返回值
 	//如果不回复消息，交由之后的应用/过滤器处理，这里 return EVENT_IGNORE - 忽略本条消息
-	return EVENT_IGNORE;
+
+	char* tmp;
+	int ret = ProcessMsg(ac, fromQQ, 0, 0, msg, tmp);
+
+	return ret;
 }
 
 
@@ -94,6 +102,9 @@ CQEVENT(int32_t, __eventPrivateMsg, 24)(int32_t subType, int32_t sendTime, int64
 * Type=2 群消息
 */
 CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t fromGroup, int64_t fromQQ, const char *fromAnonymous, const char *msg, int32_t font) {
+
+	char* tmp;
+	int ret = ProcessMsg(ac, fromQQ, fromGroup, 0, msg, tmp);
 
 	return EVENT_IGNORE; //关于返回值说明, 见“_eventPrivateMsg”函数
 }
@@ -104,6 +115,14 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 */
 CQEVENT(int32_t, __eventDiscussMsg, 32)(int32_t subType, int32_t sendTime, int64_t fromDiscuss, int64_t fromQQ, const char *msg, int32_t font) {
 
+	char* tmp;
+	int ret = ProcessMsg(ac, fromQQ, 0, fromDiscuss, msg, tmp);
+
+	//	switch ()
+	//	{
+	//	case EVENT_BLOCK:
+	//		return EVENT_BLOCK;
+	//	}
 	return EVENT_IGNORE; //关于返回值说明, 见“_eventPrivateMsg”函数
 }
 
