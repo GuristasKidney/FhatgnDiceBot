@@ -27,6 +27,18 @@
     <ClInclude Include="appmain.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="base64.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="QTool.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessMsg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mtrand.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -36,6 +48,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="appmain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="base64.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="QTool.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ProcessMsg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

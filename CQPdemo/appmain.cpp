@@ -94,7 +94,7 @@ CQEVENT(int32_t, __eventPrivateMsg, 24)(int32_t subType, int32_t sendTime, int64
 	char* tmp;
 	int ret = ProcessMsg(ac, fromQQ, 0, 0, msg, tmp);
 
-	return ret;
+	return EVENT_IGNORE;
 }
 
 
@@ -102,9 +102,6 @@ CQEVENT(int32_t, __eventPrivateMsg, 24)(int32_t subType, int32_t sendTime, int64
 * Type=2 群消息
 */
 CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t fromGroup, int64_t fromQQ, const char *fromAnonymous, const char *msg, int32_t font) {
-
-	char* tmp;
-	int ret = ProcessMsg(ac, fromQQ, fromGroup, 0, msg, tmp);
 
 	return EVENT_IGNORE; //关于返回值说明, 见“_eventPrivateMsg”函数
 }
