@@ -1,27 +1,56 @@
 #include "stdafx.h"
 #include "ProcessMsg.h"
 #include "appmain.h"
-#include "QTool.h"
 #include "cqp.h"
 #include "mtrand.hpp"
-#include <map>
+//#include <map>
 
-typedef std::map<int64_t, char*>    MapNickName;
-static MapNickName MapNickName_;
+// typedef std::map<int64_t, char*>    MapNickName;
+// static MapNickName MapNickName_;
+// 
+// static CQTool QTool;
+// static CQ_TYPE_QQ QInfo;
+// 
+// static char* help = ".help";
+// static char* r = ".r";
+// static char* rd = ".rd";
+// static char* coc = "!coc";
+// static char* coc7 = "!coc7";
+// static char* nn = ".nn";
 
-static CQTool QTool;
-static CQ_TYPE_QQ QInfo;
+static Process g_Process;
 
-static char* help = ".help";
-static char* r = ".r";
-static char* rd = ".rd";
-static char* coc = "!coc";
-static char* coc7 = "!coc7";
-static char* nn = ".nn";
+Process&Process::Instance(void)
+{
+	return g_Process;
+}
+
+Process::Process()
+{
+	help = ".help";
+	r = ".r";
+	rd = ".rd";
+	coc = "!coc";
+	coc7 = "!coc7";
+	nn = ".nn";
+	jrrp = ".jrrp";
+
+	lastday = 0;
+}
+
+Process::~Process()
+{
+	ClearNickName();
+}
 
 // 处理消息
-int ProcessMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, const char* InputMsg, char* OutputMsg)
+int Process::ProcessMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, const char* InputMsg)
 {
+	if (NULL == InputMsg)
+	{
+		return EVENT_IGNORE;
+	}
+
 	char buf[2048];
 	strcpy(buf, InputMsg);
 
@@ -92,47 +121,22 @@ int ProcessMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, c
 	//.nn命令
 	if (0 == strcmp(ptr, nn))
 	{
-		char str[2048];
-		const char* nick = GetNickName(ac, fromQQ);
-		if (NULL == nick)
-		{
-			return EVENT_IGNORE;
-		}
-
 		ptr = strtok((char *)NULL, "");
 
-		if (NULL != ptr)
-		{
-			// 设置临时昵称
-			MapNickName_[fromQQ] = ptr;
+		return SetNickName(ac, fromQQ, fromGroup, fromDiscuss, ptr);
+	}
 
-			if (NULL != nick)
-			{
-				sprintf(str, " * %s 的新昵称是 %s", nick, ptr);
-			}
-
-			SendMsg(ac, fromQQ, fromGroup, fromDiscuss, str);
-		}
-		else
-		{
-			// 取消临时昵称
-			MapNickName::iterator it = MapNickName_.find(fromQQ);
-			if (it != MapNickName_.end())
-			{
-				MapNickName_.erase(it);
-			}
-
-			sprintf(str, " * %s 取消了自己的昵称", nick);
-
-			SendMsg(ac, fromQQ, fromGroup, fromDiscuss, str);
-		}	
+	//.jrrp命令
+	if (0 == strcmp(ptr, jrrp))
+	{
+		return RollFortune(ac, fromQQ, fromGroup, fromDiscuss);
 	}
 
 	return EVENT_IGNORE;
 }
 
 // 投掷骰子
-int RollDice(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, unsigned int dicenum, unsigned int sides, char* msg)
+int Process::RollDice(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, unsigned int dicenum, unsigned int sides, char* msg)
 {
 	unsigned int sum = 0;
 	unsigned int throwtimes = dicenum;
@@ -141,7 +145,7 @@ int RollDice(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, uns
 	char str[2048];
 	int plus = 0;
 
-	const char* nick = GetNickName(ac, fromQQ);
+	const char* nick = GetNickName(ac, fromQQ, fromGroup, fromDiscuss);
 	if (NULL == nick)
 	{
 		return EVENT_IGNORE;
@@ -204,12 +208,12 @@ int RollDice(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, uns
 }
 
 // 随机COC6版属性
-int RollAttributes(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, unsigned int attributesnum)
+int Process::RollAttributes(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, unsigned int attributesnum)
 {
 	unsigned int sum = 0;
 	mtsrand((unsigned)time(NULL));
 	
-	const char* nick = GetNickName(ac, fromQQ);
+	const char* nick = GetNickName(ac, fromQQ, fromGroup, fromDiscuss);
 	if (NULL == nick)
 	{
 		return EVENT_IGNORE;
@@ -317,16 +321,16 @@ int RollAttributes(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscus
 
 	SendMsg(ac, fromQQ, fromGroup, fromDiscuss, str);
 
-	return EVENT_IGNORE;
+	return EVENT_BLOCK;
 }
 
 // 随机COC7版属性
-int RollAttributes7(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, unsigned int attributesnum)
+int Process::RollAttributes7(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, unsigned int attributesnum)
 {
 	unsigned int sum = 0;
 	mtsrand((unsigned)time(NULL));
 	
-	const char* nick = GetNickName(ac, fromQQ);
+	const char* nick = GetNickName(ac, fromQQ, fromGroup, fromDiscuss);
 	if (NULL == nick)
 	{
 		return EVENT_IGNORE;
@@ -433,11 +437,11 @@ int RollAttributes7(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscu
 
 	SendMsg(ac, fromQQ, fromGroup, fromDiscuss, str);
 
-	return EVENT_IGNORE;
+	return EVENT_BLOCK;
 }
 
 // 投掷多个骰子
-unsigned int MultiDiceSum(unsigned int dicenum, unsigned int sides)
+unsigned int Process::MultiDiceSum(unsigned int dicenum, unsigned int sides)
 {
 	unsigned int sum = 0;
 	for (size_t i = 0; i < dicenum; i++)
@@ -451,7 +455,7 @@ unsigned int MultiDiceSum(unsigned int dicenum, unsigned int sides)
 }
 
 // 判断str1是否以str2开头 如果是返回1 不是返回0 出错返回-1
-int is_begin_with(const char * str1, char *str2)
+int Process::is_begin_with(const char * str1, char *str2)
 {
 	if (str1 == NULL || str2 == NULL)
 		return -1;
@@ -474,7 +478,7 @@ int is_begin_with(const char * str1, char *str2)
 }
 
 // 从字符串str中查找str0，复制后面的内容到str1里面
-int mysubstr(char *str, const char* str0, char str1[])
+int Process::mysubstr(char *str, const char* str0, char str1[])
 {
 	str1[0] = 0;
 	// 从字符串str中查找str0，如果存在，strp就是str0的开始位置
@@ -492,32 +496,195 @@ int mysubstr(char *str, const char* str0, char str1[])
 }
 
 // 获取昵称
-const char* GetNickName(int ac, int64_t fromQQ)
+const char* Process::GetNickName(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss)
 {
 	// 查找临时昵称列表
 	MapNickName::iterator it = MapNickName_.find(fromQQ);
 	if (it != MapNickName_.end())
 	{
-		char* nick = (*it).second;
-		return nick;
+// 		char* nick = (*it).second;
+// 		return nick;
+		return (*it).second;
 	}
 
-	// 获取QQ昵称
-	if (QTool.GetStrangerInfo(ac, fromQQ, QInfo))
+	if (0 != fromGroup)
 	{
-//		char nick[100];
-//		const char* tmp = QInfo.nick.c_str();
-//		strcpy(nick, tmp);
-//		return nick;
-		return QInfo.nick.c_str();
+		if (QTool.GetGroupMemberInfo(ac, fromGroup, fromQQ, QGroupInfo))
+		{
+			return QGroupInfo.nick.c_str();
+		}
+	}
+	else
+	{
+		// 获取QQ昵称
+		if (QTool.GetStrangerInfo(ac, fromQQ, QInfo))
+		{
+			//		char nick[100];
+			//		const char* tmp = QInfo.nick.c_str();
+			//		strcpy(nick, tmp);
+			//		return nick;
+			return QInfo.nick.c_str();
+		}
 	}
 
 	// 获取失败
 	return NULL;
 }
 
+// 设置昵称
+int Process::SetNickName(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, char* nick)
+{
+	char str[2048];
+	char* deleteNick = NULL;
+	const char* oldNick = GetNickName(ac, fromQQ, fromGroup, fromDiscuss);
+	if (NULL == oldNick)
+	{
+		return EVENT_IGNORE;
+	}
+
+	// 取消临时昵称
+	MapNickName::iterator it = MapNickName_.find(fromQQ);
+	if (it != MapNickName_.end())
+	{
+		deleteNick = (*it).second;
+		MapNickName_.erase(it);
+	}
+
+	if (NULL != nick)
+	{
+		// 设置临时昵称
+		int len = strlen(nick);
+		char* newNick = new char[len+1];
+		if (NULL == newNick)
+		{
+			return EVENT_IGNORE;
+		}
+
+		strcpy(newNick, nick);
+
+		MapNickName_[fromQQ] = newNick;
+
+		sprintf(str, " * %s 的新昵称是 %s", oldNick, newNick);
+
+		SendMsg(ac, fromQQ, fromGroup, fromDiscuss, str);
+	}
+	else
+	{
+		sprintf(str, " * %s 取消了自己的昵称", oldNick);
+
+		SendMsg(ac, fromQQ, fromGroup, fromDiscuss, str);
+	}
+
+	if (NULL != deleteNick)
+	{
+		delete[] deleteNick;
+		deleteNick = NULL;
+	}
+
+	return EVENT_BLOCK;
+}
+
+// 清理昵称
+void Process::ClearNickName()
+{
+	char* clearNick = NULL;
+	while (1)
+	{
+		MapNickName::iterator it = MapNickName_.begin();
+		if (it != MapNickName_.end())
+		{
+			clearNick = (*it).second;
+			MapNickName_.erase(it);
+		}
+		else
+		{
+			break;
+		}
+
+		if (clearNick != NULL)
+		{
+			delete[] clearNick;
+			clearNick = NULL;
+		}
+		else
+		{
+			break;
+		}
+	}
+}
+
+// 投掷骰子
+int Process::RollFortune(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss)
+{
+	struct tm *t;
+	time_t tt;
+	time(&tt);
+	t = localtime(&tt);
+
+	if (lastday != t->tm_yday)
+	{
+		ClearFortune();
+		lastday = t->tm_yday;
+	}
+
+	mtsrand((unsigned)time(NULL));
+
+	char str[2048];
+	int plus = 0;
+
+	const char* nick = GetNickName(ac, fromQQ, fromGroup, fromDiscuss);
+	if (NULL == nick)
+	{
+		return EVENT_IGNORE;
+	}
+
+	unsigned int fortune = GetFortune(fromQQ);
+	if (0 == fortune)
+	{
+		fortune = mtirand() % 100 + 1;
+		SetFortune(fromQQ, fortune);
+	}
+	
+	sprintf(str, "* %s 今天的运势指数是 %u%% ! ", nick, fortune);
+
+	for (int i = 0; i < fortune; i++)
+	{
+		strcat(str, "|");
+	}
+
+	SendMsg(ac, fromQQ, fromGroup, fromDiscuss, str);
+
+	return EVENT_BLOCK;
+
+}
+
+// 获取运气
+unsigned int Process::GetFortune(int64_t fromQQ)
+{
+	MapFortune::iterator it = MapFortune_.find(fromQQ);
+	if (it != MapFortune_.end())
+	{
+		int fortune = (*it).second;
+		return fortune;
+	}
+
+	return 0;
+}
+
+// 设置运气
+void Process::SetFortune(int64_t fromQQ, int fortune)
+{
+	MapFortune_[fromQQ] = fortune;
+}
+
+// 清理运气
+void Process::ClearFortune()
+{
+	MapFortune_.clear();
+}
+
 //发送消息
-void SendMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, const char* msg)
+void Process::SendMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, const char* msg)
 {
 	if (fromQQ)
 	{
