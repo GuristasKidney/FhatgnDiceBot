@@ -91,7 +91,7 @@ CQEVENT(int32_t, __eventPrivateMsg, 24)(int32_t subType, int32_t sendTime, int64
 	//如果要回复消息，请调用酷Q方法发送，并且这里 return EVENT_BLOCK - 截断本条消息，不再继续处理  注意：应用优先级设置为"最高"(10000)时，不得使用本返回值
 	//如果不回复消息，交由之后的应用/过滤器处理，这里 return EVENT_IGNORE - 忽略本条消息
 
-	int ret = Process::Instance().ProcessMsg(ac, fromQQ, 0, 0, msg/*, tmp*/);
+	int ret = Process::Instance().ProcessMsg(ac, fromQQ, 0, 0, msg);
 	return ret;
 
 	return EVENT_IGNORE;
@@ -103,7 +103,7 @@ CQEVENT(int32_t, __eventPrivateMsg, 24)(int32_t subType, int32_t sendTime, int64
 */
 CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t fromGroup, int64_t fromQQ, const char *fromAnonymous, const char *msg, int32_t font) {
 
-	int ret = Process::Instance().ProcessMsg(ac, fromQQ, fromGroup, 0, msg/*, tmp*/);
+	int ret = Process::Instance().ProcessMsg(ac, fromQQ, fromGroup, 0, msg);
 	return ret;
 
 	return EVENT_IGNORE; //关于返回值说明, 见“_eventPrivateMsg”函数
@@ -115,7 +115,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 */
 CQEVENT(int32_t, __eventDiscussMsg, 32)(int32_t subType, int32_t sendTime, int64_t fromDiscuss, int64_t fromQQ, const char *msg, int32_t font) {
 
-	int ret = Process::Instance().ProcessMsg(ac, fromQQ, 0, fromDiscuss, msg/*, tmp*/);
+	int ret = Process::Instance().ProcessMsg(ac, fromQQ, 0, fromDiscuss, msg);
 	return ret;
 
 	return EVENT_IGNORE; //关于返回值说明, 见“_eventPrivateMsg”函数

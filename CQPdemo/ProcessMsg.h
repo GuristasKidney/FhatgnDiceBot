@@ -2,6 +2,7 @@
 #include <time.h>
 #include <map>
 #include "QTool.h"
+#include "XAutoLock.h"
 
 typedef std::map<int64_t, char*>        MapNickName;
 typedef std::map<int64_t, unsigned int> MapFortune;
@@ -59,10 +60,18 @@ public:
 	// 从字符串str中查找str0，复制后面的内容到str1里面
 	int mysubstr(char *str, const char* str0, char str1[]);
 
+	// 全角转半角
+	void sbc_to_dbc(char *sbc, char *dbc);
+
 private:
 
+	XCritSec    csMapNickName_;
 	MapNickName MapNickName_;
+
+	XCritSec    csMapFortune_;
 	MapFortune  MapFortune_;
+
+	XCritSec    csRollDice;
 
 	CQTool QTool;
 	CQ_TYPE_QQ QInfo;

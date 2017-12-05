@@ -3,20 +3,10 @@
 #include "appmain.h"
 #include "cqp.h"
 #include "mtrand.hpp"
-//#include <map>
+#include <string.h>
+#include <timeapi.h>
 
-// typedef std::map<int64_t, char*>    MapNickName;
-// static MapNickName MapNickName_;
-// 
-// static CQTool QTool;
-// static CQ_TYPE_QQ QInfo;
-// 
-// static char* help = ".help";
-// static char* r = ".r";
-// static char* rd = ".rd";
-// static char* coc = "!coc";
-// static char* coc7 = "!coc7";
-// static char* nn = ".nn";
+#pragma comment(lib,"winmm.lib")
 
 static Process g_Process;
 
@@ -52,7 +42,21 @@ int Process::ProcessMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromD
 	}
 
 	char buf[2048];
+	char dbc[2048];
 	strcpy(buf, InputMsg);
+
+	//全角转半角
+	sbc_to_dbc(buf, dbc);
+	strcpy(buf, dbc);
+
+	//处理开头的中文句号
+	if (0 == strncmp(buf, "。", strlen("。")))
+	{
+		char tmp[2048];
+		strcpy(tmp, ".");
+		strcat(tmp, buf+2);
+		strcpy(buf,tmp);
+	}
 
 	char *ptr = strtok(buf, " ");
 
@@ -62,14 +66,14 @@ int Process::ProcessMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromD
 	}
 
 	//.rd命令
-	if(0 == strcmp(ptr, rd))
+	if(0 == stricmp(ptr, rd))
 	{
 		ptr = strtok((char *)NULL, "");
 		return RollDice(ac, fromQQ, fromGroup, fromDiscuss, 1, 100, ptr);
 	}	
 	
 	//.r命令
-	if (0 == strcmp(ptr, r))
+	if (0 == stricmp(ptr, r))
 	{
 		ptr = strtok((char *)NULL, "d");
 		unsigned int dicenum = atoi(ptr);
@@ -91,7 +95,7 @@ int Process::ProcessMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromD
 	}
 
 	//!coc命令
-	if (0 == strcmp(ptr, coc))
+	if (0 == stricmp(ptr, coc))
 	{
 		ptr = strtok((char *)NULL, "");
 
@@ -105,7 +109,7 @@ int Process::ProcessMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromD
 	}
 
 	//!coc7命令
-	if (0 == strcmp(ptr, coc7))
+	if (0 == stricmp(ptr, coc7))
 	{
 		ptr = strtok((char *)NULL, "");
 
@@ -119,7 +123,7 @@ int Process::ProcessMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromD
 	}
 
 	//.nn命令
-	if (0 == strcmp(ptr, nn))
+	if (0 == stricmp(ptr, nn))
 	{
 		ptr = strtok((char *)NULL, "");
 
@@ -127,7 +131,7 @@ int Process::ProcessMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromD
 	}
 
 	//.jrrp命令
-	if (0 == strcmp(ptr, jrrp))
+	if (0 == stricmp(ptr, jrrp))
 	{
 		return RollFortune(ac, fromQQ, fromGroup, fromDiscuss);
 	}
@@ -138,9 +142,10 @@ int Process::ProcessMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromD
 // 投掷骰子
 int Process::RollDice(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, unsigned int dicenum, unsigned int sides, char* msg)
 {
+	XAutoLock l(csRollDice);
 	unsigned int sum = 0;
 	unsigned int throwtimes = dicenum;
-	mtsrand((unsigned)time(NULL));
+	mtsrand((unsigned)(::timeGetTime() + fromQQ));
 
 	char str[2048];
 	int plus = 0;
@@ -178,7 +183,6 @@ int Process::RollDice(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDis
 	// 计算骰子总和
 	for (size_t i = 0; i < throwtimes;)
 	{
-//			unsigned int randnum = rand() % sides + 1;
 		unsigned int randnum = mtirand() % sides + 1;
 		char string[10];
 		itoa(randnum, string, 10);
@@ -210,8 +214,9 @@ int Process::RollDice(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDis
 // 随机COC6版属性
 int Process::RollAttributes(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, unsigned int attributesnum)
 {
+	XAutoLock l(csRollDice);
 	unsigned int sum = 0;
-	mtsrand((unsigned)time(NULL));
+	mtsrand((unsigned)(::timeGetTime() + fromQQ));
 	
 	const char* nick = GetNickName(ac, fromQQ, fromGroup, fromDiscuss);
 	if (NULL == nick)
@@ -327,8 +332,9 @@ int Process::RollAttributes(int ac, int64_t fromQQ, int64_t fromGroup, int64_t f
 // 随机COC7版属性
 int Process::RollAttributes7(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, unsigned int attributesnum)
 {
+	XAutoLock l(csRollDice);
 	unsigned int sum = 0;
-	mtsrand((unsigned)time(NULL));
+	mtsrand((unsigned)(::timeGetTime() + fromQQ));
 	
 	const char* nick = GetNickName(ac, fromQQ, fromGroup, fromDiscuss);
 	if (NULL == nick)
@@ -498,12 +504,11 @@ int Process::mysubstr(char *str, const char* str0, char str1[])
 // 获取昵称
 const char* Process::GetNickName(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss)
 {
+	XAutoLock l(csMapNickName_);
 	// 查找临时昵称列表
 	MapNickName::iterator it = MapNickName_.find(fromQQ);
 	if (it != MapNickName_.end())
 	{
-// 		char* nick = (*it).second;
-// 		return nick;
 		return (*it).second;
 	}
 
@@ -519,10 +524,6 @@ const char* Process::GetNickName(int ac, int64_t fromQQ, int64_t fromGroup, int6
 		// 获取QQ昵称
 		if (QTool.GetStrangerInfo(ac, fromQQ, QInfo))
 		{
-			//		char nick[100];
-			//		const char* tmp = QInfo.nick.c_str();
-			//		strcpy(nick, tmp);
-			//		return nick;
 			return QInfo.nick.c_str();
 		}
 	}
@@ -542,6 +543,7 @@ int Process::SetNickName(int ac, int64_t fromQQ, int64_t fromGroup, int64_t from
 		return EVENT_IGNORE;
 	}
 
+	XAutoLock l(csMapNickName_);
 	// 取消临时昵称
 	MapNickName::iterator it = MapNickName_.find(fromQQ);
 	if (it != MapNickName_.end())
@@ -587,6 +589,7 @@ int Process::SetNickName(int ac, int64_t fromQQ, int64_t fromGroup, int64_t from
 // 清理昵称
 void Process::ClearNickName()
 {
+	XAutoLock l(csMapNickName_);
 	char* clearNick = NULL;
 	while (1)
 	{
@@ -613,21 +616,22 @@ void Process::ClearNickName()
 	}
 }
 
-// 投掷骰子
+// 投掷运气
 int Process::RollFortune(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss)
 {
+	XAutoLock l(csRollDice);
+
 	struct tm *t;
 	time_t tt;
 	time(&tt);
 	t = localtime(&tt);
 
+	//日期变动后清空运气记录
 	if (lastday != t->tm_yday)
 	{
 		ClearFortune();
 		lastday = t->tm_yday;
 	}
-
-	mtsrand((unsigned)time(NULL));
 
 	char str[2048];
 	int plus = 0;
@@ -641,6 +645,7 @@ int Process::RollFortune(int ac, int64_t fromQQ, int64_t fromGroup, int64_t from
 	unsigned int fortune = GetFortune(fromQQ);
 	if (0 == fortune)
 	{
+		mtsrand((unsigned)(::timeGetTime() + fromQQ));
 		fortune = mtirand() % 100 + 1;
 		SetFortune(fromQQ, fortune);
 	}
@@ -661,6 +666,7 @@ int Process::RollFortune(int ac, int64_t fromQQ, int64_t fromGroup, int64_t from
 // 获取运气
 unsigned int Process::GetFortune(int64_t fromQQ)
 {
+	XAutoLock l(csMapFortune_);
 	MapFortune::iterator it = MapFortune_.find(fromQQ);
 	if (it != MapFortune_.end())
 	{
@@ -674,12 +680,14 @@ unsigned int Process::GetFortune(int64_t fromQQ)
 // 设置运气
 void Process::SetFortune(int64_t fromQQ, int fortune)
 {
+	XAutoLock l(csMapFortune_);
 	MapFortune_[fromQQ] = fortune;
 }
 
 // 清理运气
 void Process::ClearFortune()
 {
+	XAutoLock l(csMapFortune_);
 	MapFortune_.clear();
 }
 
@@ -704,4 +712,26 @@ void Process::SendMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDis
 			CQ_sendPrivateMsg(ac, fromQQ, msg);
 		}
 	}
+}
+
+// 全角转半角
+void Process::sbc_to_dbc(char *sbc, char *dbc)
+{
+	for (; *sbc; ++sbc)
+	{
+		if ((*sbc & 0xff) == 0xA1 && (*(sbc + 1) & 0xff) == 0xA1)        //全角空格
+		{
+			*dbc++ = 0x20;
+			++sbc;
+		}
+		else if ((*sbc & 0xff) == 0xA3 && (*(sbc + 1) & 0xff) >= 0xA1 && (*(sbc + 1) & 0xff) <= 0xFE)    //ASCII码中其它可显示字符
+			*dbc++ = *++sbc - 0x80;
+		else
+		{
+			if (*sbc < 0)    //如果是中文字符，则拷贝两个字节
+				*dbc++ = *sbc++;
+			*dbc++ = *sbc;
+		}
+	}
+	*dbc = 0;
 }
