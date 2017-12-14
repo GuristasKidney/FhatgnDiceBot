@@ -6,8 +6,8 @@
     "apiver": 9, // Api版本，本SDK为9
     "appid": "tech.ganyaozi.fhatgndicebot",//应用的唯一标识符 可省略
     "name": "发糖骰娘", // 应用名称
-    "version": "1.0.1", // 应用版本
-    "version_id": 1, // 应用顺序版本（每次发布时至少+1）
+    "version": "2.0.0", // 应用版本
+    "version_id": 3, // 应用顺序版本（每次发布时至少+1）
     "author": "腰子", // 应用作者
     "description": "发糖群用骰娘",
     "event": [ // 事件列表，同一事件类型可重复定义（发布前请删除无用事件）
