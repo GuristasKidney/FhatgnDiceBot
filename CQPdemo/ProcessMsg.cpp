@@ -69,14 +69,14 @@ int Process::ProcessMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromD
 	//.help命令
 	if (0 == strnicmp(buf, help, strlen(help)))
 	{
-		char helpmsg[] = "<FhatgnDice　version:2.0.0 by 腰子>\n\
+		char helpmsg[] = "<FhatgnDice　version:2.0.1 by 腰子>\n\
 < 指令支持 >\n\
-- 骰点							.r 1d100+3\n\
-- 暗骰私信结果						.rh 1d20\n\
-- 投掷 coc属性						!coc 5\n\
-- 投掷 coc 7版属性						!coc7 5\n\
-- 投掷 本日运势						.jrrp\n\
-- 设置昵称							.nn 新昵称";
+- 骰点                                                               .r 1d100+3\n\
+- 暗骰私信结果                                                  .rh 1d20\n\
+- 投掷 coc属性                                                  !coc 5\n\
+- 投掷 coc 7版属性                                            !coc7 5\n\
+- 投掷 本日运势                                                 .jrrp\n\
+- 设置昵称                                                        .nn 新昵称";
 		SendMsg(ac, fromQQ, fromGroup, fromDiscuss, helpmsg);
 		return EVENT_BLOCK;
 	}
@@ -237,10 +237,9 @@ int Process::RollSegmentation(int ac, int64_t fromQQ, int64_t fromGroup, int64_t
 						}
 
 						strcpy(text, cmdL2 + i);
+						strcpy(tmp, text);
 
 						diceVect.push_back(std::make_pair(dicenum, sides));
-
-						strcpy(tmp, text);
 
 						break;
 					}
@@ -260,7 +259,8 @@ int Process::RollSegmentation(int ac, int64_t fromQQ, int64_t fromGroup, int64_t
 
 						if (NULL == cmdL2)
 						{
-							diceVect.push_back(std::make_pair(dicenum, 100));
+							unsigned int sides = atoi(cmdL1);
+							diceVect.push_back(std::make_pair(1, sides));
 							tmp = NULL;
 							continue;
 						}
