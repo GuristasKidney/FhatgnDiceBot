@@ -1,4 +1,4 @@
-#include "stdafx.h"
+ï»¿#include "stdafx.h"
 #include "ProcessMsg.h"
 #include "appmain.h"
 #include "cqp.h"
@@ -11,6 +11,12 @@
 #pragma comment(lib,"winmm.lib")
 
 static Process g_Process;
+
+//ç¾¤è¿æ°”åˆ—è¡¨æ’åº
+bool FortuneListCompare(std::pair<int64_t, unsigned int> p1, std::pair<int64_t, unsigned int> p2)
+{
+	return p1.second > p2.second;
+}
 
 Process&Process::Instance(void)
 {
@@ -26,6 +32,8 @@ Process::Process()
 	coc7 = "!coc7";
 	nn = ".nn";
 	jrrp = ".jrrp";
+	luckiest = ".luckiest";
+	rplist = ".jrrplist";
 
 	lastday = 0;
 }
@@ -35,7 +43,7 @@ Process::~Process()
 	ClearNickName();
 }
 
-// ´¦ÀíÏûÏ¢
+// å¤„ç†æ¶ˆæ¯
 int Process::ProcessMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, const char* InputMsg)
 {
 	if (NULL == InputMsg)
@@ -47,12 +55,12 @@ int Process::ProcessMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromD
 	char dbc[2048];
 	strcpy(buf, InputMsg);
 
-	//È«½Ç×ª°ë½Ç
+	//å…¨è§’è½¬åŠè§’
 	sbc_to_dbc(buf, dbc);
 	strcpy(buf, dbc);
 
-	//´¦Àí¿ªÍ·µÄÖĞÎÄ¾äºÅ
-	if (0 == strncmp(buf, "¡£", strlen("¡£")))
+	//å¤„ç†å¼€å¤´çš„ä¸­æ–‡å¥å·
+	if (0 == strncmp(buf, "ã€‚", strlen("ã€‚")))
 	{
 		char tmp[2048];
 		strcpy(tmp, ".");
@@ -60,31 +68,43 @@ int Process::ProcessMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromD
 		strcpy(buf,tmp);
 	}
 
-	//.rÃüÁî
+	//.rå‘½ä»¤
 	if (0 == strnicmp(buf, r, strlen(r)))
 	{
 		return RollSegmentation(ac, fromQQ, fromGroup, fromDiscuss, buf);
 	}
 
-	//.helpÃüÁî
+	//.helpå‘½ä»¤
 	if (0 == strnicmp(buf, help, strlen(help)))
 	{
-		char helpmsg[] = "<FhatgnDice¡¡version:2.0.1 by Ñü×Ó>\n\
-< Ö¸ÁîÖ§³Ö >\n\
-- ÷»µã                                                               .r 1d100+3\n\
-- °µ÷»Ë½ĞÅ½á¹û                                                  .rh 1d20\n\
-- Í¶ÖÀ cocÊôĞÔ                                                  !coc 5\n\
-- Í¶ÖÀ coc 7°æÊôĞÔ                                            !coc7 5\n\
-- Í¶ÖÀ ±¾ÈÕÔËÊÆ                                                 .jrrp\n\
-- ÉèÖÃêÇ³Æ                                                        .nn ĞÂêÇ³Æ";
+		char helpmsg[] = "<FhatgnDiceã€€version:2.1.0 by è…°å­>\n\
+< æŒ‡ä»¤æ”¯æŒ >\n\
+- éª°ç‚¹                                                               .r 1d100+3\n\
+- æš—éª° ç§ä¿¡ç»“æœ                                                 .rh 1d20\n\
+- æŠ•æ· cocå±æ€§                                                  !coc 5\n\
+- æŠ•æ· coc 7ç‰ˆå±æ€§                                            !coc7 5\n\
+- æŠ•æ· æœ¬æ—¥è¿åŠ¿                                                 .jrrp\n\
+- è·å– ç¾¤è¿æ°”åˆ—è¡¨ ç§ä¿¡ç»“æœ                                .jrrplist\n\
+- è®¾ç½®æ˜µç§°                                                        .nn æ–°æ˜µç§°";
 		SendMsg(ac, fromQQ, fromGroup, fromDiscuss, helpmsg);
 		return EVENT_BLOCK;
 	}
 
+	//.helpå‘½ä»¤
+	if (0 == strnicmp(buf, luckiest, strlen(luckiest)))
+	{
+		return ProcessLuckiest(ac, fromQQ, fromGroup, fromDiscuss);
+	}
+
+	if (0 == strnicmp(buf, rplist, strlen(rplist)))
+	{
+		return GetFortuneList(ac, fromQQ, fromGroup, fromDiscuss);
+	}
+
 	/************************************************************************
 	* old 1.0.0
-	* ´ıĞŞ¸Ä£º!cocÃüÁîºÏ²¢
-	*         Ö¸ÁîÅĞ¶Ï
+	* å¾…ä¿®æ”¹ï¼š!cocå‘½ä»¤åˆå¹¶
+	*         æŒ‡ä»¤åˆ¤æ–­
 	************************************************************************/
 
 	char *ptr = strtok(buf, " ");
@@ -94,7 +114,7 @@ int Process::ProcessMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromD
 		return EVENT_IGNORE;
 	}
 
-	//!cocÃüÁî
+	//!cocå‘½ä»¤
 	if (0 == stricmp(ptr, coc))
 	{
 		ptr = strtok((char *)NULL, "");
@@ -108,7 +128,7 @@ int Process::ProcessMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromD
 		return RollAttributes(ac, fromQQ, fromGroup, fromDiscuss, attributes_num);
 	}
 
-	//!coc7ÃüÁî
+	//!coc7å‘½ä»¤
 	if (0 == stricmp(ptr, coc7))
 	{
 		ptr = strtok((char *)NULL, "");
@@ -122,7 +142,7 @@ int Process::ProcessMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromD
 		return RollAttributes7(ac, fromQQ, fromGroup, fromDiscuss, attributes_num);
 	}
 
-	//.nnÃüÁî
+	//.nnå‘½ä»¤
 	if (0 == stricmp(ptr, nn))
 	{
 		ptr = strtok((char *)NULL, "");
@@ -130,7 +150,7 @@ int Process::ProcessMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromD
 		return SetNickName(ac, fromQQ, fromGroup, fromDiscuss, ptr);
 	}
 
-	//.jrrpÃüÁî
+	//.jrrpå‘½ä»¤
 	if (0 == stricmp(ptr, jrrp))
 	{
 		return RollFortune(ac, fromQQ, fromGroup, fromDiscuss);
@@ -139,10 +159,10 @@ int Process::ProcessMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromD
 	return EVENT_IGNORE;
 }
 
-// ÆÕÍ¨÷»µãÏûÏ¢´¦Àí
+// æ™®é€šéª°ç‚¹æ¶ˆæ¯å¤„ç†
 int Process::RollSegmentation(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, char* msg)
 {
-	XAutoLock l(csRollDice);
+	XAutoLock l(csRollDice_);
 	char texttmp[2048];
 	char text[2048];
 	int plus = 0;
@@ -156,17 +176,17 @@ int Process::RollSegmentation(int ac, int64_t fromQQ, int64_t fromGroup, int64_t
 
 	if (NULL == tmp)
 	{
-		SendMsg(ac, fromQQ, fromGroup, fromGroup, "ÄúµÄÊäÈë¸ñÊ½ÓĞÎó,Çë²Î¿¼°ïÖúÖ¸Áî .help");
+		SendMsg(ac, fromQQ, fromGroup, fromGroup, "æ‚¨çš„è¾“å…¥æ ¼å¼æœ‰è¯¯,è¯·å‚è€ƒå¸®åŠ©æŒ‡ä»¤ .help");
 		return EVENT_BLOCK;
 	}
 
 	if (NULL == strstr(tmp, "d"))
 	{
-		SendMsg(ac, fromQQ, fromGroup, fromGroup, "ÄúµÄÊäÈë¸ñÊ½ÓĞÎó,Çë²Î¿¼°ïÖúÖ¸Áî .help");
+		SendMsg(ac, fromQQ, fromGroup, fromGroup, "æ‚¨çš„è¾“å…¥æ ¼å¼æœ‰è¯¯,è¯·å‚è€ƒå¸®åŠ©æŒ‡ä»¤ .help");
 		return EVENT_BLOCK;
 	}
 
-	VS_StrLTrim(tmp);//Çå³ı×Ö·û´®Ç°µÄ¿Õ¸ñ
+	VS_StrLTrim(tmp);//æ¸…é™¤å­—ç¬¦ä¸²å‰çš„ç©ºæ ¼
 
 	if ('h' == tmp[0])
 	{
@@ -174,48 +194,48 @@ int Process::RollSegmentation(int ac, int64_t fromQQ, int64_t fromGroup, int64_t
 		tmp++;
 	}
 
-	VS_StrLTrim(tmp);//Çå³ı×Ö·û´®Ç°µÄ¿Õ¸ñ
+	VS_StrLTrim(tmp);//æ¸…é™¤å­—ç¬¦ä¸²å‰çš„ç©ºæ ¼
 
 	while (1)
 	{
-		//Ã»ÓĞºóĞø×Ö·û´®ĞèÒª´¦ÀíÊ±Ö±½ÓÊä³ö
+		//æ²¡æœ‰åç»­å­—ç¬¦ä¸²éœ€è¦å¤„ç†æ—¶ç›´æ¥è¾“å‡º
 		if (NULL == tmp)
 		{
 			return RollDice(ac, fromQQ, fromGroup, fromDiscuss, NULL, plus, secretly);
 		}
 
-		//ÅĞ¶ÏÊÇ·ñº¬rollµãÖ¸Áî
+		//åˆ¤æ–­æ˜¯å¦å«rollç‚¹æŒ‡ä»¤
 		if (NULL != strstr(tmp, "d"))
 		{
 			char *cmdL1 = NULL;
-			if ('d' == tmp[0])//strtok²»Ê¶±ğ×Ö·û´®Ê×²¿µÄ·Ö¸ô·û
+			if ('d' == tmp[0])//strtokä¸è¯†åˆ«å­—ç¬¦ä¸²é¦–éƒ¨çš„åˆ†éš”ç¬¦
 			{
 				cmdL1 = tmp + 1;
 			}
 			else
 			{
-				cmdL1 = strtok(tmp, "d");//ÒÔdÎª±êÇ©×ö·Ö¸î
+				cmdL1 = strtok(tmp, "d");//ä»¥dä¸ºæ ‡ç­¾åšåˆ†å‰²
 			}
 
-			//÷»×ÓÊıÄ¬ÈÏÎª1
+			//éª°å­æ•°é»˜è®¤ä¸º1
 			if (NULL == cmdL1)
 			{
 				int dicenum = 1;
-				//»ñÈ¡÷»×ÓÃæÊı
+				//è·å–éª°å­é¢æ•°
 				char *cmdL2 = strtok((char*)NULL, "d");
 
 				if (NULL == cmdL2)
 				{
-					diceVect.push_back(std::make_pair(1, 100));
+					DiceVect_.push_back(std::make_pair(1, 100));
 					tmp = NULL;
 					continue;
 				}
 
-				//·ÖÀëÊı×ÖºÍÎÄ×Ö
+				//åˆ†ç¦»æ•°å­—å’Œæ–‡å­—
 				int i = 0;
 				while (1)
 				{
-					if (cmdL2[i] >= '0'&&cmdL2[i] <= '9') //Èç¹ûÊı×éÔªËØÊÇÊı×Ö
+					if (cmdL2[i] >= '0'&&cmdL2[i] <= '9') //å¦‚æœæ•°ç»„å…ƒç´ æ˜¯æ•°å­—
 					{
 						i++;
 						continue;
@@ -239,7 +259,7 @@ int Process::RollSegmentation(int ac, int64_t fromQQ, int64_t fromGroup, int64_t
 						strcpy(text, cmdL2 + i);
 						strcpy(tmp, text);
 
-						diceVect.push_back(std::make_pair(dicenum, sides));
+						DiceVect_.push_back(std::make_pair(dicenum, sides));
 
 						break;
 					}
@@ -247,29 +267,29 @@ int Process::RollSegmentation(int ac, int64_t fromQQ, int64_t fromGroup, int64_t
 			}
 			else
 			{
-				//ÅĞ¶ÏÊ××Ö·û
-				if (isdigit(cmdL1[0]))//ÊÇÊı×Ö
+				//åˆ¤æ–­é¦–å­—ç¬¦
+				if (isdigit(cmdL1[0]))//æ˜¯æ•°å­—
 				{
 					if (strspn(cmdL1, "0123456789") == strlen(cmdL1))
 					{
 						int dicenum = atoi(cmdL1);
 
-						//»ñÈ¡÷»×ÓÃæÊı
+						//è·å–éª°å­é¢æ•°
 						char *cmdL2 = strtok((char*)NULL, "");
 
 						if (NULL == cmdL2)
 						{
 							unsigned int sides = atoi(cmdL1);
-							diceVect.push_back(std::make_pair(1, sides));
+							DiceVect_.push_back(std::make_pair(1, sides));
 							tmp = NULL;
 							continue;
 						}
 
-						//·ÖÀëÊı×ÖºÍÎÄ×Ö
+						//åˆ†ç¦»æ•°å­—å’Œæ–‡å­—
 						int i = 0;
 						while (1)
 						{
-							if (cmdL2[i] >= '0'&&cmdL2[i] <= '9') //Èç¹ûÊı×éÔªËØÊÇÊı×Ö
+							if (cmdL2[i] >= '0'&&cmdL2[i] <= '9') //å¦‚æœæ•°ç»„å…ƒç´ æ˜¯æ•°å­—
 							{
 								i++;
 								continue;
@@ -293,19 +313,19 @@ int Process::RollSegmentation(int ac, int64_t fromQQ, int64_t fromGroup, int64_t
 								strcpy(text, cmdL2 + i);
 								strcpy(tmp, text);
 
-								diceVect.push_back(std::make_pair(dicenum, sides));
+								DiceVect_.push_back(std::make_pair(dicenum, sides));
 								break;
 							}
 						}
 					}
-					else if (0 == stricmp(cmdL1, tmp + 1))//×Ö·û´®Îª"d...."¸ñÊ½
+					else if (0 == stricmp(cmdL1, tmp + 1))//å­—ç¬¦ä¸²ä¸º"d...."æ ¼å¼
 					{
 						int dicenum = 1;
-						//·ÖÀëÊı×ÖºÍÎÄ×Ö
+						//åˆ†ç¦»æ•°å­—å’Œæ–‡å­—
 						int i = 0;
 						while (1)
 						{
-							if (cmdL1[i] >= '0'&&cmdL1[i] <= '9') //Èç¹ûÊı×éÔªËØÊÇÊı×Ö
+							if (cmdL1[i] >= '0'&&cmdL1[i] <= '9') //å¦‚æœæ•°ç»„å…ƒç´ æ˜¯æ•°å­—
 							{
 								i++;
 								continue;
@@ -329,25 +349,25 @@ int Process::RollSegmentation(int ac, int64_t fromQQ, int64_t fromGroup, int64_t
 								strcpy(text, cmdL1 + i);
 								strcpy(tmp, text);
 
-								diceVect.push_back(std::make_pair(dicenum, sides));
+								DiceVect_.push_back(std::make_pair(dicenum, sides));
 								break;
 							}
 						}
 					}
 					else
 					{
-						//Ö¸Áî´íÎó
-						diceVect.clear();
-						SendMsg(ac, fromQQ, fromGroup, fromGroup,"ÄúµÄÊäÈë¸ñÊ½ÓĞÎó,Çë²Î¿¼°ïÖúÖ¸Áî .help");
+						//æŒ‡ä»¤é”™è¯¯
+						DiceVect_.clear();
+						SendMsg(ac, fromQQ, fromGroup, fromGroup,"æ‚¨çš„è¾“å…¥æ ¼å¼æœ‰è¯¯,è¯·å‚è€ƒå¸®åŠ©æŒ‡ä»¤ .help");
 						return EVENT_BLOCK;
 					}
 				}
-				else if (0 == strncmp(cmdL1, "+", strlen("+")) || 0 == strncmp(cmdL1, "-", strlen("-")))//¼Ó¼õ·¨
+				else if (0 == strncmp(cmdL1, "+", strlen("+")) || 0 == strncmp(cmdL1, "-", strlen("-")))//åŠ å‡æ³•
 				{
 					if (strspn(cmdL1 + 1, "0123456789") == (strlen(cmdL1) - 1))
 					{
 						int dicenum = 1;
-						if (strlen(cmdL1) > 1)//ÅÅ³ı+d»ò-d¸ñÊ½
+						if (strlen(cmdL1) > 1)//æ’é™¤+dæˆ–-dæ ¼å¼
 						{
 							dicenum = atoi(cmdL1);
 						}
@@ -356,21 +376,21 @@ int Process::RollSegmentation(int ac, int64_t fromQQ, int64_t fromGroup, int64_t
 							dicenum = -1;
 						}
 
-						//»ñÈ¡÷»×ÓÃæÊı
+						//è·å–éª°å­é¢æ•°
 						char *cmdL2 = strtok((char*)NULL, "");
 
 						if (NULL == cmdL2)
 						{
-							diceVect.push_back(std::make_pair(dicenum, 100));
+							DiceVect_.push_back(std::make_pair(dicenum, 100));
 							tmp = NULL;
 							continue;
 						}
 
-						//·ÖÀëÊı×ÖºÍÎÄ×Ö
+						//åˆ†ç¦»æ•°å­—å’Œæ–‡å­—
 						int i = 0;
 						while (1)
 						{
-							if (cmdL2[i] >= '0'&&cmdL2[i] <= '9') //Èç¹ûÊı×éÔªËØÊÇÊı×Ö
+							if (cmdL2[i] >= '0'&&cmdL2[i] <= '9') //å¦‚æœæ•°ç»„å…ƒç´ æ˜¯æ•°å­—
 							{
 								i++;
 								continue;
@@ -394,19 +414,19 @@ int Process::RollSegmentation(int ac, int64_t fromQQ, int64_t fromGroup, int64_t
 								strcpy(text, cmdL2 + i);
 								strcpy(tmp, text);
 
-								diceVect.push_back(std::make_pair(dicenum, sides));
+								DiceVect_.push_back(std::make_pair(dicenum, sides));
 								break;
 							}
 						}
 					}
-					else if (0 == stricmp(cmdL1, tmp + 1))//×Ö·û´®Îª"d...."¸ñÊ½
+					else if (0 == stricmp(cmdL1, tmp + 1))//å­—ç¬¦ä¸²ä¸º"d...."æ ¼å¼
 					{
 						int dicenum = 1;
-						//·ÖÀëÊı×ÖºÍÎÄ×Ö
+						//åˆ†ç¦»æ•°å­—å’Œæ–‡å­—
 						int i = 0;
 						while (1)
 						{
-							if (cmdL1[i] >= '0'&&cmdL1[i] <= '9') //Èç¹ûÊı×éÔªËØÊÇÊı×Ö
+							if (cmdL1[i] >= '0'&&cmdL1[i] <= '9') //å¦‚æœæ•°ç»„å…ƒç´ æ˜¯æ•°å­—
 							{
 								i++;
 								continue;
@@ -430,18 +450,18 @@ int Process::RollSegmentation(int ac, int64_t fromQQ, int64_t fromGroup, int64_t
 								strcpy(text, cmdL1 + i);
 								strcpy(tmp, text);
 
-								diceVect.push_back(std::make_pair(dicenum, sides));
+								DiceVect_.push_back(std::make_pair(dicenum, sides));
 								break;
 							}
 						}
 					}
-					else if (isdigit(cmdL1[1]))//ÅĞ¶ÏÊ××Ö·ûÊÇÊı×Ö
+					else if (isdigit(cmdL1[1]))//åˆ¤æ–­é¦–å­—ç¬¦æ˜¯æ•°å­—
 					{
-						//·ÖÀëÊı×ÖºÍÎÄ×Ö
+						//åˆ†ç¦»æ•°å­—å’Œæ–‡å­—
 						int i = 1;
 						while (1)
 						{
-							if (cmdL1[i] >= '0'&&cmdL1[i] <= '9') //Èç¹ûÊı×éÔªËØÊÇÊı×Ö
+							if (cmdL1[i] >= '0'&&cmdL1[i] <= '9') //å¦‚æœæ•°ç»„å…ƒç´ æ˜¯æ•°å­—
 							{
 								i++;
 								continue;
@@ -464,14 +484,14 @@ int Process::RollSegmentation(int ac, int64_t fromQQ, int64_t fromGroup, int64_t
 						return RollDice(ac, fromQQ, fromGroup, fromDiscuss, msgtmp, plus, secretly);
 					}
 				}
-				else if (0 == stricmp(cmdL1, tmp + 1))//×Ö·û´®Îª"d...."¸ñÊ½
+				else if (0 == stricmp(cmdL1, tmp + 1))//å­—ç¬¦ä¸²ä¸º"d...."æ ¼å¼
 				{
 					int dicenum = 1;
-					//·ÖÀëÊı×ÖºÍÎÄ×Ö
+					//åˆ†ç¦»æ•°å­—å’Œæ–‡å­—
 					int i = 0;
 					while (1)
 					{
-						if (cmdL1[i] >= '0'&&cmdL1[i] <= '9') //Èç¹ûÊı×éÔªËØÊÇÊı×Ö
+						if (cmdL1[i] >= '0'&&cmdL1[i] <= '9') //å¦‚æœæ•°ç»„å…ƒç´ æ˜¯æ•°å­—
 						{
 							i++;
 							continue;
@@ -495,7 +515,7 @@ int Process::RollSegmentation(int ac, int64_t fromQQ, int64_t fromGroup, int64_t
 							strcpy(text, cmdL1 + i);
 							strcpy(tmp, text);
 
-							diceVect.push_back(std::make_pair(dicenum, sides));
+							DiceVect_.push_back(std::make_pair(dicenum, sides));
 							break;
 						}
 					}
@@ -509,16 +529,16 @@ int Process::RollSegmentation(int ac, int64_t fromQQ, int64_t fromGroup, int64_t
 		}
 		else
 		{
-			//ÅĞ¶ÏÊ××Ö·û
-			if (0 == strncmp(tmp, "+", strlen("+")) || 0 == strncmp(tmp, "-", strlen("-")))//¼Ó¼õ·¨
+			//åˆ¤æ–­é¦–å­—ç¬¦
+			if (0 == strncmp(tmp, "+", strlen("+")) || 0 == strncmp(tmp, "-", strlen("-")))//åŠ å‡æ³•
 			{
-				if (isdigit(tmp[1]))//ÊÇÊı×Ö
+				if (isdigit(tmp[1]))//æ˜¯æ•°å­—
 				{
-					//·ÖÀëÊı×ÖºÍÎÄ×Ö
+					//åˆ†ç¦»æ•°å­—å’Œæ–‡å­—
 					int i = 1;
 					while (1)
 					{
-						if (tmp[i] >= '0'&&tmp[i] <= '9') //Èç¹ûÊı×éÔªËØÊÇÊı×Ö
+						if (tmp[i] >= '0'&&tmp[i] <= '9') //å¦‚æœæ•°ç»„å…ƒç´ æ˜¯æ•°å­—
 						{
 							i++;
 							continue;
@@ -549,13 +569,13 @@ int Process::RollSegmentation(int ac, int64_t fromQQ, int64_t fromGroup, int64_t
 		}
 	}
 
-	diceVect.clear();
+	DiceVect_.clear();
 
-	SendMsg(ac, fromQQ, fromGroup, fromGroup, "ÄúµÄÊäÈë¸ñÊ½ÓĞÎó,Çë²Î¿¼°ïÖúÖ¸Áî .help");
+	SendMsg(ac, fromQQ, fromGroup, fromGroup, "æ‚¨çš„è¾“å…¥æ ¼å¼æœ‰è¯¯,è¯·å‚è€ƒå¸®åŠ©æŒ‡ä»¤ .help");
 	return EVENT_BLOCK;
 }
 
-// Í¶ÖÀ÷»×Ó
+// æŠ•æ·éª°å­
 int Process::RollDice(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, char* msg, int plus, bool secretly)
 {
 	int sum = 0;
@@ -563,67 +583,67 @@ int Process::RollDice(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDis
 	char result[1024] = "";
 	char outputfmt[2048];
 	char output[2048];
-	sprintf_s(outputfmt, "* %%s Í¶ÖÀ %%s : %%s = %%s");
+	sprintf_s(outputfmt, "* %%s æŠ•æ· %%s : %%s = %%s");
 
 	const char* nick = GetNickName(ac, fromQQ, fromGroup, fromDiscuss);
 	if (NULL == nick)
 	{
-		diceVect.clear();
+		DiceVect_.clear();
 		return EVENT_IGNORE;
 	}
 
-	//Éú³ÉËæ»úÊıÖÖ×Ó
+	//ç”Ÿæˆéšæœºæ•°ç§å­
 	mtsrand((unsigned)(::timeGetTime() + fromQQ));
 
-	//»ñÈ¡¶ÓÁĞ³¤¶È
-	size_t len = diceVect.size();
+	//è·å–é˜Ÿåˆ—é•¿åº¦
+	size_t len = DiceVect_.size();
 	if (len <= 0)
 	{
-		//Ã»ÓĞÍ¶ÖÀ÷»×Ó
+		//æ²¡æœ‰æŠ•æ·éª°å­
 		return EVENT_IGNORE;
 	}
 
 	if (NULL == msg)
 	{
-		//±ê×¢Îª¿Õ
+		//æ ‡æ³¨ä¸ºç©º
 		msg = "";
 	}
 	else
 	{
-		VS_StrLTrim(msg);//Çå³ı×Ö·û´®Ç°µÄ¿Õ¸ñ
+		VS_StrLTrim(msg);//æ¸…é™¤å­—ç¬¦ä¸²å‰çš„ç©ºæ ¼
 	}
 
-	//×é³ÉËãÊ½
+	//ç»„æˆç®—å¼
 	for (size_t i = 0; i < len; i++)
 	{
-		if (0 == diceVect[i].first)
+		if (0 == DiceVect_[i].first)
 		{
 			char outputerr[256];
-			sprintf_s(outputerr, "* %s ¶ªÁËÒ»ÍÅ¿ÕÆøµ½ÁË×À×ÓÉÏ¡£", nick);
+			sprintf_s(outputerr, "* %s ä¸¢äº†ä¸€å›¢ç©ºæ°”åˆ°äº†æ¡Œå­ä¸Šã€‚", nick);
 			SendMsg(ac, fromQQ, fromGroup, fromGroup, outputerr);
-			diceVect.clear();
+			DiceVect_.clear();
 			return EVENT_BLOCK;
 		}
-		else if (0 == diceVect[i].second)
+		else if (0 == DiceVect_[i].second)
 		{
 			char outputerr[256];
-			sprintf_s(outputerr, "* %s ÄÃ³öÁËÒ»¸öÒì´ÎÔª÷»×Ó Ã»ÓĞÈË¿´µÃµ½ËüµÄ½á¹û¡£", nick);
+			sprintf_s(outputerr, "* %s æ‹¿å‡ºäº†ä¸€ä¸ªå¼‚æ¬¡å…ƒéª°å­ æ²¡æœ‰äººçœ‹å¾—åˆ°å®ƒçš„ç»“æœã€‚", nick);
 			SendMsg(ac, fromQQ, fromGroup, fromGroup, outputerr);
-			diceVect.clear();
+			DiceVect_.clear();
 			return EVENT_BLOCK;
 		}
 
 		char tmp[10];
-		if (i != 0 && diceVect[i].first > 0)
+		if (i != 0 && DiceVect_[i].first > 0)
 		{
 			strcat_s(formula, 512, "+");
 		}
 
-		sprintf_s(tmp, "%dd%d", diceVect[i].first, diceVect[i].second);
+		sprintf_s(tmp, "%dd%d", DiceVect_[i].first, DiceVect_[i].second);
 		strcat_s(formula, 512, tmp);
 	}
 
-	//×é³É½á¹û
+	//ç»„æˆç»“æœ
 	for (size_t i = 0; i < len; i++)
 	{
 		unsigned int dicenum = 0;
@@ -631,24 +651,24 @@ int Process::RollDice(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDis
 		char resulttmp[512] = "";
 		char tmp[10] = "";
 		char rolltmp[512] = "";
-		char fmt[512] = "";//fmt¸ñÊ½¿ØÖÆ
+		char fmt[512] = "";//fmtæ ¼å¼æ§åˆ¶
 
 
-		if (diceVect[i].first > 0)//×ö¼Ó·¨
+		if (DiceVect_[i].first > 0)//åšåŠ æ³•
 		{
 			if (i != 0)
 			{
 				strcat_s(fmt, 512, "+");
 			}
-			dicenum = diceVect[i].first;
+			dicenum = DiceVect_[i].first;
 		}
-		else if (diceVect[i].first < 0)//×ö¼õ·¨
+		else if (DiceVect_[i].first < 0)//åšå‡æ³•
 		{
 			strcat_s(fmt, 512, "-");
-			dicenum -= diceVect[i].first;
+			dicenum -= DiceVect_[i].first;
 		}
 
-		//Ò»´ÎĞÔÍ¶ÖÀ¶à¸ö÷»×ÓµÄ½á¹ûÓÃÀ¨ºÅ±êÊ¶
+		//ä¸€æ¬¡æ€§æŠ•æ·å¤šä¸ªéª°å­çš„ç»“æœç”¨æ‹¬å·æ ‡è¯†
 		if (dicenum > 1)
 		{
 			strcat_s(fmt, 512, "(%s)");
@@ -658,18 +678,18 @@ int Process::RollDice(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDis
 			strcat_s(fmt, 512, "%s");
 		}
 
-		//Í¶ÖÀ÷»×Ó
+		//æŠ•æ·éª°å­
 		for (int j = 0; j < dicenum; j++)
 		{
-			int sides = diceVect[i].second;
+			int sides = DiceVect_[i].second;
 			if (j != 0)
 			{
-				strcat_s(rolltmp, 512, "¡¢");
+				strcat_s(rolltmp, 512, "ã€");
 			}
 
-			//Éú³ÉËæ»úÊı
+			//ç”Ÿæˆéšæœºæ•°
 			rollret = mtirand() % sides + 1;
-			if (diceVect[i].first > 0)
+			if (DiceVect_[i].first > 0)
 			{
 				sum += rollret;
 			}
@@ -684,7 +704,7 @@ int Process::RollDice(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDis
 			Sleep(1);
 		}
 
-		//½«´Ë´ÎÍ¶ÖÀ½á¹ûÊäÈëµ½½á¹û×Ö·û´®ÖĞ
+		//å°†æ­¤æ¬¡æŠ•æ·ç»“æœè¾“å…¥åˆ°ç»“æœå­—ç¬¦ä¸²ä¸­
 		sprintf_s(resulttmp, fmt, rolltmp);
 		strcat_s(result, resulttmp);
 	}
@@ -705,7 +725,7 @@ int Process::RollDice(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDis
 		sum += plus;
 	}
 
-	if (len > 1 || 0 != plus || diceVect[0].first > 1)
+	if (len > 1 || 0 != plus || DiceVect_[0].first > 1)
 	{
 		char tmp[10] = "";
 		itoa(sum, tmp, 10);
@@ -718,7 +738,7 @@ int Process::RollDice(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDis
 	if (secretly)
 	{
 		char outputh[512];
-		sprintf_s(outputh, "* %s Í¶ÁËÒ»°ÑÒşĞÎ÷»×Ó ÄãÃÇÕâĞ©±¿µ°ÊÇ¿´²»¼ûµÄ", nick);
+		sprintf_s(outputh, "* %s æŠ•äº†ä¸€æŠŠéšå½¢éª°å­ ä½ ä»¬è¿™äº›ç¬¨è›‹æ˜¯çœ‹ä¸è§çš„", nick);
 		SendMsg(ac, fromQQ, fromGroup, fromGroup, outputh);
 		SendMsg(ac, fromQQ, 0, 0, output);
 	}
@@ -727,14 +747,14 @@ int Process::RollDice(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDis
 		SendMsg(ac, fromQQ, fromGroup, fromDiscuss, output);
 	}
 
-	diceVect.clear();
+	DiceVect_.clear();
 	return EVENT_BLOCK;
 }
 
-// Ëæ»úCOC6°æÊôĞÔ
+// éšæœºCOC6ç‰ˆå±æ€§
 int Process::RollAttributes(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, unsigned int attributesnum)
 {
-	XAutoLock l(csRollDice);
+	XAutoLock l(csRollDice_);
 	unsigned int sum = 0;
 	mtsrand((unsigned)(::timeGetTime() + fromQQ));
 	
@@ -745,15 +765,15 @@ int Process::RollAttributes(int ac, int64_t fromQQ, int64_t fromGroup, int64_t f
 	}
 
 	char str[2048];
-	sprintf_s(str, "* %s Í¶ÖÀCOC 6°æ ÊôĞÔ :", nick);
+	sprintf_s(str, "* %s æŠ•æ·COC 6ç‰ˆ å±æ€§ :", nick);
 
 	for (size_t i = 0; i < attributesnum; i++)
 	{
 		char string[100] = "";
 		char attributes[10];
-		unsigned int Str = MultiDiceSum(3, 6);    //Á¦Á¿
+		unsigned int Str = MultiDiceSum(3, 6);    //åŠ›é‡
 
-		strcat(string, "\nÁ¦Á¿ ");
+		strcat(string, "\nåŠ›é‡ ");
 		if (Str < 10)
 		{
 			strcat(string, "  ");
@@ -761,9 +781,9 @@ int Process::RollAttributes(int ac, int64_t fromQQ, int64_t fromGroup, int64_t f
 		itoa(Str, attributes, 10);
 		strcat(string, attributes);
 
-		unsigned int Dex = MultiDiceSum(3, 6);    //Ãô½İ
+		unsigned int Dex = MultiDiceSum(3, 6);    //æ•æ·
 
-		strcat(string, " Ãô½İ ");
+		strcat(string, " æ•æ· ");
 		if (Dex < 10)
 		{
 			strcat(string, "  ");
@@ -771,9 +791,9 @@ int Process::RollAttributes(int ac, int64_t fromQQ, int64_t fromGroup, int64_t f
 		itoa(Dex, attributes, 10);
 		strcat(string, attributes);
 
-		unsigned int Con = MultiDiceSum(3, 6);    //ÌåÖÊ
+		unsigned int Con = MultiDiceSum(3, 6);    //ä½“è´¨
 
-		strcat(string, " ÌåÖÊ ");
+		strcat(string, " ä½“è´¨ ");
 		if (Con < 10)
 		{
 			strcat(string, "  ");
@@ -781,9 +801,9 @@ int Process::RollAttributes(int ac, int64_t fromQQ, int64_t fromGroup, int64_t f
 		itoa(Con, attributes, 10);
 		strcat(string, attributes);
 
-		unsigned int App = MultiDiceSum(3, 6);    //ÍâÃ²
+		unsigned int App = MultiDiceSum(3, 6);    //å¤–è²Œ
 
-		strcat(string, " ÍâÃ² ");
+		strcat(string, " å¤–è²Œ ");
 		if (App < 10)
 		{
 			strcat(string, "  ");
@@ -791,9 +811,9 @@ int Process::RollAttributes(int ac, int64_t fromQQ, int64_t fromGroup, int64_t f
 		itoa(App, attributes, 10);
 		strcat(string, attributes);
 
-		unsigned int Pow = MultiDiceSum(3, 6);    //ÒâÖ¾
+		unsigned int Pow = MultiDiceSum(3, 6);    //æ„å¿—
 
-		strcat(string, " ÒâÖ¾ ");
+		strcat(string, " æ„å¿— ");
 		if (Pow < 10)
 		{
 			strcat(string, "  ");
@@ -801,9 +821,9 @@ int Process::RollAttributes(int ac, int64_t fromQQ, int64_t fromGroup, int64_t f
 		itoa(Pow, attributes, 10);
 		strcat(string, attributes);
 
-		unsigned int Int = MultiDiceSum(2, 6) + 6;//ÖÇÁ¦
+		unsigned int Int = MultiDiceSum(2, 6) + 6;//æ™ºåŠ›
 
-		strcat(string, " ÖÇÁ¦ ");
+		strcat(string, " æ™ºåŠ› ");
 		if (Int < 10)
 		{
 			strcat(string, "  ");
@@ -811,9 +831,9 @@ int Process::RollAttributes(int ac, int64_t fromQQ, int64_t fromGroup, int64_t f
 		itoa(Int, attributes, 10);
 		strcat(string, attributes);
 
-		unsigned int Siz = MultiDiceSum(2, 6) + 6;//ÌåĞÍ
+		unsigned int Siz = MultiDiceSum(2, 6) + 6;//ä½“å‹
 
-		strcat(string, " ÌåĞÍ ");
+		strcat(string, " ä½“å‹ ");
 		if (Siz < 10)
 		{
 			strcat(string, "  ");
@@ -821,9 +841,9 @@ int Process::RollAttributes(int ac, int64_t fromQQ, int64_t fromGroup, int64_t f
 		itoa(Siz, attributes, 10);
 		strcat(string, attributes);
 
-		unsigned int Edu = MultiDiceSum(3, 6) + 3;//½ÌÓı
+		unsigned int Edu = MultiDiceSum(3, 6) + 3;//æ•™è‚²
 
-		strcat(string, " ½ÌÓı ");
+		strcat(string, " æ•™è‚² ");
 		if (Edu < 10)
 		{
 			strcat(string, "  ");
@@ -831,9 +851,9 @@ int Process::RollAttributes(int ac, int64_t fromQQ, int64_t fromGroup, int64_t f
 		itoa(Edu, attributes, 10);
 		strcat(string, attributes);
 
-		unsigned int Assets = MultiDiceSum(1, 10);//×Ê²ú
+		unsigned int Assets = MultiDiceSum(1, 10);//èµ„äº§
 
-		strcat(string, " ×Ê²ú ");
+		strcat(string, " èµ„äº§ ");
 		if (Assets < 10)
 		{
 			strcat(string, "  ");
@@ -849,10 +869,10 @@ int Process::RollAttributes(int ac, int64_t fromQQ, int64_t fromGroup, int64_t f
 	return EVENT_BLOCK;
 }
 
-// Ëæ»úCOC7°æÊôĞÔ
+// éšæœºCOC7ç‰ˆå±æ€§
 int Process::RollAttributes7(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, unsigned int attributesnum)
 {
-	XAutoLock l(csRollDice);
+	XAutoLock l(csRollDice_);
 	unsigned int sum = 0;
 	mtsrand((unsigned)(::timeGetTime() + fromQQ));
 	
@@ -862,15 +882,15 @@ int Process::RollAttributes7(int ac, int64_t fromQQ, int64_t fromGroup, int64_t 
 		return EVENT_IGNORE;
 	}
 	char str[2048];
-	sprintf_s(str, "* %s Í¶ÖÀCOC 7°æ ÊôĞÔ :", nick);
+	sprintf_s(str, "* %s æŠ•æ·COC 7ç‰ˆ å±æ€§ :", nick);
 
 	for (size_t i = 0; i < attributesnum; i++)
 	{
 		char string[100] = "";
 		char attributes[10];
-		unsigned int Str = MultiDiceSum(3, 6) * 5;    //Á¦Á¿
+		unsigned int Str = MultiDiceSum(3, 6) * 5;    //åŠ›é‡
 
-		strcat(string, "\nÁ¦Á¿ ");
+		strcat(string, "\nåŠ›é‡ ");
 		if (Str < 10)
 		{
 			strcat(string, "  ");
@@ -878,9 +898,9 @@ int Process::RollAttributes7(int ac, int64_t fromQQ, int64_t fromGroup, int64_t 
 		itoa(Str, attributes, 10);
 		strcat(string, attributes);
 
-		unsigned int Dex = MultiDiceSum(3, 6) * 5;    //Ãô½İ
+		unsigned int Dex = MultiDiceSum(3, 6) * 5;    //æ•æ·
 
-		strcat(string, " Ãô½İ ");
+		strcat(string, " æ•æ· ");
 		if (Dex < 10)
 		{
 			strcat(string, "  ");
@@ -888,9 +908,9 @@ int Process::RollAttributes7(int ac, int64_t fromQQ, int64_t fromGroup, int64_t 
 		itoa(Dex, attributes, 10);
 		strcat(string, attributes);
 
-		unsigned int Con = MultiDiceSum(3, 6) * 5;    //ÌåÖÊ
+		unsigned int Con = MultiDiceSum(3, 6) * 5;    //ä½“è´¨
 
-		strcat(string, " ÌåÖÊ ");
+		strcat(string, " ä½“è´¨ ");
 		if (Con < 10)
 		{
 			strcat(string, "  ");
@@ -898,9 +918,9 @@ int Process::RollAttributes7(int ac, int64_t fromQQ, int64_t fromGroup, int64_t 
 		itoa(Con, attributes, 10);
 		strcat(string, attributes);
 
-		unsigned int App = MultiDiceSum(3, 6) * 5;    //ÍâÃ²
+		unsigned int App = MultiDiceSum(3, 6) * 5;    //å¤–è²Œ
 
-		strcat(string, " ÍâÃ² ");
+		strcat(string, " å¤–è²Œ ");
 		if (App < 10)
 		{
 			strcat(string, "  ");
@@ -908,9 +928,9 @@ int Process::RollAttributes7(int ac, int64_t fromQQ, int64_t fromGroup, int64_t 
 		itoa(App, attributes, 10);
 		strcat(string, attributes);
 
-		unsigned int Pow = MultiDiceSum(3, 6) * 5;    //ÒâÖ¾
+		unsigned int Pow = MultiDiceSum(3, 6) * 5;    //æ„å¿—
 
-		strcat(string, " ÒâÖ¾ ");
+		strcat(string, " æ„å¿— ");
 		if (Pow < 10)
 		{
 			strcat(string, "  ");
@@ -918,9 +938,9 @@ int Process::RollAttributes7(int ac, int64_t fromQQ, int64_t fromGroup, int64_t 
 		itoa(Pow, attributes, 10);
 		strcat(string, attributes);
 
-		unsigned int Int = (MultiDiceSum(2, 6) + 6) * 5;//ÖÇÁ¦
+		unsigned int Int = (MultiDiceSum(2, 6) + 6) * 5;//æ™ºåŠ›
 
-		strcat(string, " ÖÇÁ¦ ");
+		strcat(string, " æ™ºåŠ› ");
 		if (Int < 10)
 		{
 			strcat(string, "  ");
@@ -928,9 +948,9 @@ int Process::RollAttributes7(int ac, int64_t fromQQ, int64_t fromGroup, int64_t 
 		itoa(Int, attributes, 10);
 		strcat(string, attributes);
 
-		unsigned int Siz = (MultiDiceSum(2, 6) + 6) * 5;//ÌåĞÍ
+		unsigned int Siz = (MultiDiceSum(2, 6) + 6) * 5;//ä½“å‹
 
-		strcat(string, " ÌåĞÍ ");
+		strcat(string, " ä½“å‹ ");
 		if (Siz < 10)
 		{
 			strcat(string, "  ");
@@ -938,9 +958,9 @@ int Process::RollAttributes7(int ac, int64_t fromQQ, int64_t fromGroup, int64_t 
 		itoa(Siz, attributes, 10);
 		strcat(string, attributes);
 
-		unsigned int Edu = (MultiDiceSum(2, 6) + 6) * 5;//½ÌÓı
+		unsigned int Edu = (MultiDiceSum(2, 6) + 6) * 5;//æ•™è‚²
 
-		strcat(string, " ½ÌÓı ");
+		strcat(string, " æ•™è‚² ");
 		if (Edu < 10)
 		{
 			strcat(string, "  ");
@@ -948,9 +968,9 @@ int Process::RollAttributes7(int ac, int64_t fromQQ, int64_t fromGroup, int64_t 
 		itoa(Edu, attributes, 10);
 		strcat(string, attributes);
 
-		unsigned int Luc = MultiDiceSum(3, 6) * 5;//ĞÒÔË
+		unsigned int Luc = MultiDiceSum(3, 6) * 5;//å¹¸è¿
 
-		strcat(string, " ĞÒÔË ");
+		strcat(string, " å¹¸è¿ ");
 		if (Luc < 10)
 		{
 			strcat(string, "  ");
@@ -966,7 +986,7 @@ int Process::RollAttributes7(int ac, int64_t fromQQ, int64_t fromGroup, int64_t 
 	return EVENT_BLOCK;
 }
 
-// Í¶ÖÀ¶à¸ö÷»×Ó
+// æŠ•æ·å¤šä¸ªéª°å­
 unsigned int Process::MultiDiceSum(unsigned int dicenum, unsigned int sides)
 {
 	unsigned int sum = 0;
@@ -980,7 +1000,7 @@ unsigned int Process::MultiDiceSum(unsigned int dicenum, unsigned int sides)
 	return sum;
 }
 
-// ÅĞ¶Ïstr1ÊÇ·ñÒÔstr2¿ªÍ· Èç¹ûÊÇ·µ»Ø1 ²»ÊÇ·µ»Ø0 ³ö´í·µ»Ø-1
+// åˆ¤æ–­str1æ˜¯å¦ä»¥str2å¼€å¤´ å¦‚æœæ˜¯è¿”å›1 ä¸æ˜¯è¿”å›0 å‡ºé”™è¿”å›-1
 int Process::is_begin_with(const char * str1, char *str2)
 {
 	if (str1 == NULL || str2 == NULL)
@@ -1003,56 +1023,114 @@ int Process::is_begin_with(const char * str1, char *str2)
 	return 1;
 }
 
-// ´Ó×Ö·û´®strÖĞ²éÕÒstr0£¬¸´ÖÆºóÃæµÄÄÚÈİµ½str1ÀïÃæ
+// ä»å­—ç¬¦ä¸²strä¸­æŸ¥æ‰¾str0ï¼Œå¤åˆ¶åé¢çš„å†…å®¹åˆ°str1é‡Œé¢
 int Process::mysubstr(char *str, const char* str0, char str1[])
 {
 	str1[0] = 0;
-	// ´Ó×Ö·û´®strÖĞ²éÕÒstr0£¬Èç¹û´æÔÚ£¬strp¾ÍÊÇstr0µÄ¿ªÊ¼Î»ÖÃ
+	// ä»å­—ç¬¦ä¸²strä¸­æŸ¥æ‰¾str0ï¼Œå¦‚æœå­˜åœ¨ï¼Œstrpå°±æ˜¯str0çš„å¼€å§‹ä½ç½®
 	char* strp = strstr(str, str0); 
 	if (strp == NULL)
 	{
-		// Ã»ÓĞÕÒµ½
+		// æ²¡æœ‰æ‰¾åˆ°
 		return 0; 
 	}
 
-	// Õâ¸öÊÇ×Ö·û´®¸´ÖÆº¯Êı£¬strp+strlen(str0)¾ÍÊÇstr0ºóÃæµÄµÚÒ»¸ö×Ö·ûµÄÎ»ÖÃ£¬´ÓÕâ¸öÎ»ÖÃ¿ªÊ¼£¬¸´ÖÆºóÃæµÄÄÚÈİµ½str1ÀïÃæ
+	// è¿™ä¸ªæ˜¯å­—ç¬¦ä¸²å¤åˆ¶å‡½æ•°ï¼Œstrp+strlen(str0)å°±æ˜¯str0åé¢çš„ç¬¬ä¸€ä¸ªå­—ç¬¦çš„ä½ç½®ï¼Œä»è¿™ä¸ªä½ç½®å¼€å§‹ï¼Œå¤åˆ¶åé¢çš„å†…å®¹åˆ°str1é‡Œé¢
 	strcpy(str1, strp + strlen(str0)); 
 
 	return 1;
 }
 
-// »ñÈ¡êÇ³Æ
-const char* Process::GetNickName(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss)
+// è·å–æ˜µç§°
+const char* Process::GetNickName(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, int mode)
 {
 	XAutoLock l(csMapNickName_);
-	// ²éÕÒÁÙÊ±êÇ³ÆÁĞ±í
-	MapNickName::iterator it = MapNickName_.find(fromQQ);
-	if (it != MapNickName_.end())
+
+	if (0 == mode)
 	{
-		return (*it).second;
+		// æŸ¥æ‰¾ä¸´æ—¶æ˜µç§°åˆ—è¡¨
+		MapNickName::iterator it = MapNickName_.find(fromQQ);
+		if (it != MapNickName_.end())
+		{
+			if (NULL != (*it).second)
+			{
+				if (0 == strcmp((*it).second, ""))
+				{
+					// è·å–QQæ˜µç§°
+					if (QTool.GetStrangerInfo(ac, fromQQ, QInfo))
+					{
+						return QInfo.nick.c_str();
+					}
+				}
+				else
+				{
+					return (*it).second;
+				}
+			}
+			else
+			{
+				return (*it).second;
+			}
+			//		return (*it).second;
+		}
 	}
+
+// 	if (0 != fromGroup)
+// 	{
+// 		if (QTool.GetGroupMemberInfo(ac, fromGroup, fromQQ, QGroupInfo))
+// 		{
+// 			return QGroupInfo.nick.c_str();
+// 		}
+// 	}
+// 	else
+// 	{
+// 		// è·å–QQæ˜µç§°
+// 		if (QTool.GetStrangerInfo(ac, fromQQ, QInfo))
+// 		{
+// 			return QInfo.nick.c_str();
+// 		}
+// 	}
 
 	if (0 != fromGroup)
 	{
 		if (QTool.GetGroupMemberInfo(ac, fromGroup, fromQQ, QGroupInfo))
 		{
-			return QGroupInfo.nick.c_str();
+//			return QGroupInfo.nick.c_str();
+			if (NULL != QGroupInfo.nick.c_str())
+			{
+				if (0 == strcmp(QGroupInfo.nick.c_str() , ""))
+				{
+					// è·å–QQæ˜µç§°
+					if (QTool.GetStrangerInfo(ac, fromQQ, QInfo))
+					{
+						return QInfo.nick.c_str();
+					}
+				}
+				else
+				{
+					return QGroupInfo.nick.c_str();
+				}
+			}
+			else
+			{
+				return QGroupInfo.nick.c_str();
+			}
 		}
 	}
 	else
 	{
-		// »ñÈ¡QQêÇ³Æ
+		// è·å–QQæ˜µç§°
 		if (QTool.GetStrangerInfo(ac, fromQQ, QInfo))
 		{
 			return QInfo.nick.c_str();
 		}
 	}
 
-	// »ñÈ¡Ê§°Ü
+	// è·å–å¤±è´¥
 	return NULL;
 }
 
-// ÉèÖÃêÇ³Æ
+// è®¾ç½®æ˜µç§°
 int Process::SetNickName(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, char* nick)
 {
 	char str[2048];
@@ -1064,7 +1142,7 @@ int Process::SetNickName(int ac, int64_t fromQQ, int64_t fromGroup, int64_t from
 	}
 
 	XAutoLock l(csMapNickName_);
-	// È¡ÏûÁÙÊ±êÇ³Æ
+	// å–æ¶ˆä¸´æ—¶æ˜µç§°
 	MapNickName::iterator it = MapNickName_.find(fromQQ);
 	if (it != MapNickName_.end())
 	{
@@ -1074,7 +1152,7 @@ int Process::SetNickName(int ac, int64_t fromQQ, int64_t fromGroup, int64_t from
 
 	if (NULL != nick)
 	{
-		// ÉèÖÃÁÙÊ±êÇ³Æ
+		// è®¾ç½®ä¸´æ—¶æ˜µç§°
 		int len = strlen(nick);
 		char* newNick = new char[len+1];
 		if (NULL == newNick)
@@ -1086,13 +1164,13 @@ int Process::SetNickName(int ac, int64_t fromQQ, int64_t fromGroup, int64_t from
 
 		MapNickName_[fromQQ] = newNick;
 
-		sprintf_s(str, " * %s µÄĞÂêÇ³ÆÊÇ %s", oldNick, newNick);
+		sprintf_s(str, " * %s çš„æ–°æ˜µç§°æ˜¯ %s", oldNick, newNick);
 
 		SendMsg(ac, fromQQ, fromGroup, fromDiscuss, str);
 	}
 	else
 	{
-		sprintf_s(str, " * %s È¡ÏûÁË×Ô¼ºµÄêÇ³Æ", oldNick);
+		sprintf_s(str, " * %s å–æ¶ˆäº†è‡ªå·±çš„æ˜µç§°", oldNick);
 
 		SendMsg(ac, fromQQ, fromGroup, fromDiscuss, str);
 	}
@@ -1106,7 +1184,7 @@ int Process::SetNickName(int ac, int64_t fromQQ, int64_t fromGroup, int64_t from
 	return EVENT_BLOCK;
 }
 
-// ÇåÀíêÇ³Æ
+// æ¸…ç†æ˜µç§°
 void Process::ClearNickName()
 {
 	XAutoLock l(csMapNickName_);
@@ -1136,20 +1214,21 @@ void Process::ClearNickName()
 	}
 }
 
-// Í¶ÖÀÔËÆø
+// æŠ•æ·è¿æ°”
 int Process::RollFortune(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss)
 {
-	XAutoLock l(csRollDice);
+	XAutoLock l(csRollDice_);
 
 	struct tm *t;
 	time_t tt;
 	time(&tt);
 	t = localtime(&tt);
 
-	//ÈÕÆÚ±ä¶¯ºóÇå¿ÕÔËÆø¼ÇÂ¼
+	//æ—¥æœŸå˜åŠ¨åæ¸…ç©ºè¿æ°”è®°å½•
 	if (lastday != t->tm_yday)
 	{
 		ClearFortune();
+		ClearLuckiest();
 		lastday = t->tm_yday;
 	}
 
@@ -1167,10 +1246,17 @@ int Process::RollFortune(int ac, int64_t fromQQ, int64_t fromGroup, int64_t from
 	{
 		mtsrand((unsigned)(::timeGetTime() + fromQQ));
 		fortune = mtirand() % 100 + 1;
-		SetFortune(fromQQ, fortune);
+//		SetFortune(fromQQ, fromGroup, fortune);
+	}
+	SetFortune(fromQQ, fromGroup, fortune);
+
+	int luckiest = GetLuckiest(fromGroup, 1);
+	if (0 != fromGroup && fortune > luckiest)
+	{
+		SetLuckiest(fromQQ, fromGroup, fortune);
 	}
 	
-	sprintf_s(str, "* %s ½ñÌìµÄÔËÊÆÖ¸ÊıÊÇ %u%% ! ", nick, fortune);
+	sprintf_s(str, "* %s ä»Šå¤©çš„è¿åŠ¿æŒ‡æ•°æ˜¯ %u%% ! ", nick, fortune);
 
 	for (int i = 0; i < fortune; i++)
 	{
@@ -1180,75 +1266,223 @@ int Process::RollFortune(int ac, int64_t fromQQ, int64_t fromGroup, int64_t from
 	SendMsg(ac, fromQQ, fromGroup, fromDiscuss, str);
 
 	return EVENT_BLOCK;
-
 }
 
-// »ñÈ¡ÔËÆø
+// è·å–è¿æ°”
 unsigned int Process::GetFortune(int64_t fromQQ)
 {
 	XAutoLock l(csMapFortune_);
 	MapFortune::iterator it = MapFortune_.find(fromQQ);
 	if (it != MapFortune_.end())
 	{
-		int fortune = (*it).second;
+		unsigned int fortune = (*it).second.second;
 		return fortune;
 	}
 
 	return 0;
 }
 
-// ÉèÖÃÔËÆø
-void Process::SetFortune(int64_t fromQQ, int fortune)
+// è·å–ç¾¤è¿æ°”åˆ—è¡¨
+int Process::GetFortuneList(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss)
 {
 	XAutoLock l(csMapFortune_);
-	MapFortune_[fromQQ] = fortune;
+
+	if (0 == fromGroup)
+	{
+		SendMsg(ac, fromQQ, fromGroup, fromDiscuss, "* è¯¥æŒ‡ä»¤ä»…ä¾›ç¾¤ä½¿ç”¨");
+		return EVENT_BLOCK;
+	}
+
+	char str[2048];
+	sprintf(str, "ç¾¤[%lld]è¿æ°”åˆ—è¡¨ï¼š", fromGroup);
+
+	std::vector<std::pair<int64_t, unsigned int>> FortuneList;
+
+	MapFortune::iterator it = MapFortune_.begin();
+	while (it != MapFortune_.end())
+	{
+		if (fromGroup == (*it).second.first)
+		{
+			int64_t qqnum = (*it).first;
+			unsigned int fortune = (*it).second.second;
+			FortuneList.push_back(std::make_pair(qqnum, fortune));
+		}
+		++it;
+	}
+
+	sort(FortuneList.begin(), FortuneList.end(), FortuneListCompare);
+	for (size_t i = 0; i < FortuneList.size(); i++)
+	{
+		const char* nick = GetNickName(ac, FortuneList[i].first, fromGroup, fromDiscuss, 1);
+		char tmp[32];
+
+		if (10 > FortuneList[i].second)
+		{
+			sprintf_s(tmp, "\n%u         %s", FortuneList[i].second, nick);
+		}
+		else if (100 == FortuneList[i].second)
+		{
+			sprintf_s(tmp, "\n%u     %s", FortuneList[i].second, nick);
+		}
+		else
+		{
+			sprintf_s(tmp, "\n%u       %s", FortuneList[i].second, nick);
+		}
+		
+		strcat_s(str, 2048, tmp);
+	}
+
+	SendMsg(ac, fromQQ, 0, 0, str);
+	return EVENT_BLOCK;
 }
 
-// ÇåÀíÔËÆø
+// è®¾ç½®è¿æ°”
+void Process::SetFortune(int64_t fromQQ, int64_t fromGroup, unsigned int fortune)
+{
+	XAutoLock l(csMapFortune_);
+//	MapFortune_[fromQQ] = fortune;
+
+	typedef MapFortune::iterator iter;
+	std::pair<iter, iter> pos = MapFortune_.equal_range(fromQQ);
+	while (pos.first != pos.second)
+	{
+		iter it = pos.first;
+		if (fromGroup == (*it).second.first)
+		{
+			return;
+		}
+		++pos.first;
+	}
+
+	MapFortune_.insert(std::make_pair(fromQQ, std::make_pair(fromGroup, fortune)));
+}
+
+// æ¸…ç†è¿æ°”
 void Process::ClearFortune()
 {
 	XAutoLock l(csMapFortune_);
 	MapFortune_.clear();
 }
 
-//·¢ËÍÏûÏ¢
+// luckiestæ¶ˆæ¯å¤„ç†
+int Process::ProcessLuckiest(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss)
+{
+	struct tm *t;
+	time_t tt;
+	time(&tt);
+	t = localtime(&tt);
+
+	int64_t topQQ = 0;
+
+	//æ—¥æœŸå˜åŠ¨åæ¸…ç©ºè¿æ°”è®°å½•
+	if (lastday != t->tm_yday)
+	{
+		ClearFortune();
+		ClearLuckiest();
+		lastday = t->tm_yday;
+	}
+
+	if (0 == fromGroup)
+	{
+		SendMsg(ac, fromQQ, fromGroup, fromDiscuss, "* è¯¥æŒ‡ä»¤ä»…ä¾›ç¾¤ä½¿ç”¨");
+		return EVENT_BLOCK;
+	}
+
+	topQQ = GetLuckiest(fromGroup, 0);
+	if (0 == topQQ)
+	{
+		SendMsg(ac, fromQQ, fromGroup, 0, "* ä»Šæ—¥è¿˜æœªæœ‰äººæŠ•æ·è¿åŠ¿");
+	}
+	else
+	{
+		const char* nick = GetNickName(ac, topQQ, fromGroup, fromDiscuss);
+		if (NULL == nick)
+		{
+			return EVENT_IGNORE;
+		}
+
+		char outputerr[256];
+		sprintf_s(outputerr, "* æœ¬ç¾¤ä»Šæ—¥è¿åŠ¿æœ€é«˜çš„æ˜¯ %s", nick);
+		SendMsg(ac, fromQQ, fromGroup, 0, outputerr);
+	}
+
+	return EVENT_BLOCK;
+}
+
+// è·å–æœ¬æ—¥æœ€å¹¸è¿çš„äºº
+int Process::GetLuckiest(int64_t fromGroup, int GetType)
+{
+	XAutoLock l(csLuckiest_);
+	Mapluckiest::iterator it = Mapluckiest_.find(fromGroup);
+	if (it != Mapluckiest_.end())
+	{
+		if (0 == GetType)
+		{
+			return (*it).second.first;
+		}
+		else
+		{
+			return (*it).second.second;
+		}
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+// è®¾ç½®Luckiest
+void Process::SetLuckiest(int64_t fromQQ, int64_t fromGroup, int fortune)
+{
+	XAutoLock l(csLuckiest_);
+	Mapluckiest_[fromGroup] = std::make_pair(fromQQ, fortune);
+}
+
+// æ¸…ç†Luckiest
+void Process::ClearLuckiest()
+{
+	XAutoLock l(csLuckiest_);
+	Mapluckiest_.clear();
+}
+
+//å‘é€æ¶ˆæ¯
 void Process::SendMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, const char* msg)
 {
 	if (fromQQ)
 	{
 		if (fromGroup)
 		{
-			//·¢ËÍÈºÏûÏ¢
+			//å‘é€ç¾¤æ¶ˆæ¯
 			CQ_sendGroupMsg(ac, fromGroup, msg);
 		}
 		else if (fromDiscuss)
 		{
-			//·¢ËÍÌÖÂÛ×éÏûÏ¢
+			//å‘é€è®¨è®ºç»„æ¶ˆæ¯
 			CQ_sendDiscussMsg(ac, fromDiscuss, msg);
 		}
 		else
 		{
-			//·¢ËÍË½ÁÄÏûÏ¢
+			//å‘é€ç§èŠæ¶ˆæ¯
 			CQ_sendPrivateMsg(ac, fromQQ, msg);
 		}
 	}
 }
 
-// È«½Ç×ª°ë½Ç
+// å…¨è§’è½¬åŠè§’
 void Process::sbc_to_dbc(char *sbc, char *dbc)
 {
 	for (; *sbc; ++sbc)
 	{
-		if ((*sbc & 0xff) == 0xA1 && (*(sbc + 1) & 0xff) == 0xA1)        //È«½Ç¿Õ¸ñ
+		if ((*sbc & 0xff) == 0xA1 && (*(sbc + 1) & 0xff) == 0xA1)        //å…¨è§’ç©ºæ ¼
 		{
 			*dbc++ = 0x20;
 			++sbc;
 		}
-		else if ((*sbc & 0xff) == 0xA3 && (*(sbc + 1) & 0xff) >= 0xA1 && (*(sbc + 1) & 0xff) <= 0xFE)    //ASCIIÂëÖĞÆäËü¿ÉÏÔÊ¾×Ö·û
+		else if ((*sbc & 0xff) == 0xA3 && (*(sbc + 1) & 0xff) >= 0xA1 && (*(sbc + 1) & 0xff) <= 0xFE)    //ASCIIç ä¸­å…¶å®ƒå¯æ˜¾ç¤ºå­—ç¬¦
 			*dbc++ = *++sbc - 0x80;
 		else
 		{
-			if (*sbc < 0)    //Èç¹ûÊÇÖĞÎÄ×Ö·û£¬Ôò¿½±´Á½¸ö×Ö½Ú
+			if (*sbc < 0)    //å¦‚æœæ˜¯ä¸­æ–‡å­—ç¬¦ï¼Œåˆ™æ‹·è´ä¸¤ä¸ªå­—èŠ‚
 				*dbc++ = *sbc++;
 			*dbc++ = *sbc;
 		}
@@ -1256,7 +1490,7 @@ void Process::sbc_to_dbc(char *sbc, char *dbc)
 	*dbc = 0;
 }
 
-// Çå³ı×Ö·û´®Ç°µÄ¿Õ¸ñ
+// æ¸…é™¤å­—ç¬¦ä¸²å‰çš„ç©ºæ ¼
 void Process::VS_StrLTrim(char *pStr)
 {
 	char *pTmp = pStr;

@@ -3,11 +3,14 @@
 #include <map>
 #include <vector>
 #include <utility>
+#include <algorithm>
 #include "QTool.h"
 #include "XAutoLock.h"
 
-typedef std::map<int64_t, char*>         MapNickName;//Map容器存放当前设置的昵称信息，前者为QQ号，后者为临时昵称
-typedef std::map<int64_t, unsigned int>  MapFortune;//Map容器存放本日运势，前者为QQ号，后者为运势指数
+typedef std::map<int64_t, char*>         MapNickName;//Map容器存放当前设置的昵称信息，key为QQ号，value为临时昵称
+//typedef std::map<int64_t, unsigned int>  MapFortune;//Map容器存放本日运势，key为QQ号，value为运势指数
+typedef std::multimap<int64_t, std::pair<int64_t, unsigned int>>  MapFortune;//Map容器存放本日运势，key为QQ号，value的first的群号，second为运势指数
+typedef std::map<int64_t, std::pair<int64_t, int>>       Mapluckiest;//Map容器存放每个群本日运势最高的人，key为群号，value为QQ号
 typedef std::vector<std::pair<int, int>> DiceVector;//vector队列存放当前骰点的指令，前者为骰子数，后者为面数，当后者为负数时代表此次计算为减法
 
 class Process
@@ -37,7 +40,7 @@ public:
 	unsigned int MultiDiceSum(unsigned int dicenum, unsigned int sides);
 
 	// 获取昵称
-	const char* GetNickName(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss);
+	const char* GetNickName(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, int mode=0);
 
 	// 设置昵称
 	int SetNickName(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, char* nick);
@@ -51,11 +54,26 @@ public:
 	// 获取运气
 	unsigned int GetFortune(int64_t fromQQ);
 
+	// 获取群运气列表
+	int GetFortuneList(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss);
+
 	// 设置运气
-	void SetFortune(int64_t fromQQ, int fortune);
+	void SetFortune(int64_t fromQQ, int64_t fromGroup, unsigned int fortune);
 
 	// 清理运气
 	void ClearFortune();
+
+	// Luckiest消息处理
+	int ProcessLuckiest(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss);
+
+	// 获取Luckiest
+	int GetLuckiest(int64_t fromGroup, int GetType);
+
+	// 设置Luckiest
+	void SetLuckiest(int64_t fromQQ, int64_t fromGroup, int forturn);
+
+	// 清理Luckiest
+	void ClearLuckiest();
 
 	//发送消息
 	void SendMsg(int ac, int64_t fromQQ, int64_t fromGroup, int64_t fromDiscuss, const char* msg);
@@ -81,12 +99,18 @@ private:
 	MapFortune  MapFortune_;//运势指数容器，每日12点过后清空
 	int lastday;//运势容器对应的日期
 
-	XCritSec    csRollDice;
-	DiceVector	diceVect;//骰子队列
+	XCritSec    csLuckiest_;
+	Mapluckiest Mapluckiest_;//
+
+	XCritSec    csRollDice_;
+	DiceVector	DiceVect_;//骰子队列
 
 	CQTool QTool;
 	CQ_TYPE_QQ QInfo;
 	CQ_Type_GroupMember QGroupInfo;
+
+// 	unsigned int topfortune;//本日最高的运势值
+// 	int64_t topQQ;//本日运势最高的QQ号
 
 	//指令集
 	const char* help;
@@ -96,4 +120,6 @@ private:
 	const char* coc7;
 	const char* nn;
 	const char* jrrp;
+	const char* luckiest;
+	const char* rplist;
 };
